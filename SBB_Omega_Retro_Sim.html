@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>SBB_Classic_Via</title>
+    <style>
+        :root { 
+            --sbb-blue: #002171; --ui: #2a2a2a; --txt: #eee; 
+            --sbb-red: #eb0000; --sbb-orange: #ffcc00; 
+        }
+        body { background: #1a1a1a; color: var(--txt); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        
+        .ui { background: var(--ui); padding: 15px; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; border: 1px solid #444; align-items: center; }
+        input, select { background: #111; color: #fff; border: 1px solid #555; padding: 8px; border-radius: 4px; font-weight: bold; }
+        .btn-run { background: var(--sbb-red); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        /* Le Panneau CFF */
+        #board { background: var(--sbb-blue); padding: 35px; border: 10px solid #111; border-radius: 12px; box-shadow: 0 40px 80px rgba(0,0,0,0.8); min-width: 1450px; }
+        .row { display: flex; align-items: center; gap: 18px; margin-bottom: 15px; position: relative; }
+        
+        .type-box { min-width: 110px; height: 65px; line-height: 65px; text-align: center; font-size: 24px; font-weight: 900; background: #fff; color: #000; text-transform: uppercase; border-radius: 4px; }
+        .type-box.red { background: var(--sbb-red); color: #fff; border: 2px solid #fff; }
+
+        .flap-group { display: flex; gap: 2px; }
+        .label { font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+
+        .flap { 
+            background: #080808; color: #fff; width: 38px; height: 65px; 
+            font-size: 45px; font-weight: bold; line-height: 65px; text-align: center;
+            border-radius: 3px; border: 1px solid #000; font-family: 'Courier New', monospace;
+            position: relative;
+        }
+        .flap::after { content: ""; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: rgba(255,255,255,0.1); }
+
+        /* Style spécial pour le VIA (plus petit et gris) */
+        .via-flap { width: 30px !important; height: 50px !important; font-size: 32px !important; line-height: 50px !important; color: #ccc !important; }
+
+        .cancel-txt { color: #ff3333 !important; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        .delay-info { background: #000; color: var(--sbb-orange); border: 2px solid var(--sbb-orange); padding: 5px 10px; font-weight: bold; border-radius: 4px; visibility: hidden; }
+
+        .flipping { animation: fAnim 0.08s infinite; }
+        @keyframes fAnim { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
+    </style>
+</head>
+<body>
+
+    <div class="ui">
+        <select id="l-sel">
+            <option value="0">TRAIN 1</option><option value="1">TRAIN 2</option>
+            <option value="2">TRAIN 3</option><option value="3">TRAIN 4</option>
+        </select>
+        <input type="text" id="i-ty" value="IC" style="width:50px">
+        <input type="text" id="i-ti" value="15:45" style="width:65px">
+        <input type="text" id="i-de" value="ZURICH HB" style="width:140px">
+        <input type="text" id="i-vi" value="BERN-OLTEN" style="width:140px" placeholder="VIA...">
+        <input type="text" id="i-vo" value="5" style="width:35px">
+        
+        <select id="i-st">
+            <option value="ok">NORMAL</option>
+            <option value="+5' RETARD">+5'</option>
+            <option value="+10' RETARD">+10'</option>
+            <option value="X">ANNULÉ</option>
+        </select>
+
+        <button class="btn-run" onclick="update()">Actionner le panneau</button>
+        <button onclick="record()" style="background:#444; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">⏺ VIDÉO</button>
+    </div>
+
+    <div id="board">
+        <div class="row" id="row-0">
+            <div id="ty-0" class="type-box">---</div>
+            <div><div class="label">Heure</div><div id="ti-0" class="flap-group"></div></div>
+            <div><div class="label">Destination</div><div id="de-0" class="flap-group"></div></div>
+            <div><div class="label">Via</div><div id="vi-0" class="flap-group"></div></div>
+            <div><div class="label">Voie</div><div id="vo-0" class="flap-group"></div></div>
+            <div id="st-0" class="delay-info"></div>
+        </div>
+        <div class="row" id="row-1">
+            <div id="ty-1" class="type-box">---</div>
+            <div><div class="label">Heure</div><div id="ti-1" class="flap-group"></div></div>
+            <div><div class="label">Destination</div><div id="de-1" class="flap-group"></div></div>
+            <div><div class="label">Via</div><div id="vi-1" class="flap-group"></div></div>
+            <div><div class="label">Voie</div><div id="vo-1" class="flap-group"></div></div>
+            <div id="st-1" class="delay-info"></div>
+        </div>
+        <div class="row" id="row-2">
+            <div id="ty-2" class="type-box">---</div>
+            <div><div class="label">Heure</div><div id="ti-2" class="flap-group"></div></div>
+            <div><div class="label">Destination</div><div id="de-2" class="flap-group"></div></div>
+            <div><div class="label">Via</div><div id="vi-2" class="flap-group"></div></div>
+            <div><div class="label">Voie</div><div id="vo-2" class="flap-group"></div></div>
+            <div id="st-2" class="delay-info"></div>
+        </div>
+        <div class="row" id="row-3">
+            <div id="ty-3" class="type-box">---</div>
+            <div><div class="label">Heure</div><div id="ti-3" class="flap-group"></div></div>
+            <div><div class="label">Destination</div><div id="de-3" class="flap-group"></div></div>
+            <div><div class="label">Via</div><div id="vi-3" class="flap-group"></div></div>
+            <div><div class="label">Voie</div><div id="vo-3" class="flap-group"></div></div>
+            <div id="st-3" class="delay-info"></div>
+        </div>
+    </div>
+
+    <script>
+        const CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:-+'".split("");
+        
+        function init() {
+            for(let i=0; i<4; i++) {
+                gen('ti-'+i, 5, ""); gen('de-'+i, 15, ""); 
+                gen('vi-'+i, 18, "via-flap"); gen('vo-'+i, 2, "");
+            }
+        }
+
+        function gen(id, n, cls) {
+            const p = document.getElementById(id);
+            for(let i=0; i<n; i++) {
+                let f = document.createElement('div'); 
+                f.className = 'flap ' + cls; f.innerText = ' ';
+                p.appendChild(f);
+            }
+        }
+
+        function anim(el, char, isCancel) {
+            let target = char.toUpperCase();
+            if(!CHARS.includes(target)) target = " "; // Fixe le bug du "V" ou lettres folles
+            if(el.innerText === target) return;
+            
+            el.classList.add('flipping');
+            let curIdx = CHARS.indexOf(el.innerText);
+            if(curIdx === -1) curIdx = 0;
+
+            let motor = setInterval(() => {
+                curIdx = (curIdx + 1) % CHARS.length;
+                el.innerText = CHARS[curIdx];
+                if(CHARS[curIdx] === target) {
+                    clearInterval(motor);
+                    el.classList.remove('flipping');
+                    if(isCancel) el.classList.add('cancel-txt'); else el.classList.remove('cancel-txt');
+                }
+            }, 35);
+        }
+
+        function update() {
+            const l = document.getElementById('l-sel').value;
+            const ty = document.getElementById('i-ty').value;
+            const ti = document.getElementById('i-ti').value.padEnd(5);
+            const deRaw = document.getElementById('i-de').value;
+            const via = document.getElementById('i-vi').value.padEnd(18);
+            const vo = document.getElementById('i-vo').value.padEnd(2);
+            const st = document.getElementById('i-st').value;
+
+            let isCancel = (st === 'X');
+            let de = isCancel ? "ANNULE".padEnd(15) : deRaw.padEnd(15);
+
+            let tb = document.getElementById('ty-'+l);
+            tb.innerText = ty;
+            tb.className = ["IC","IR","EXT"].includes(ty.toUpperCase()) ? "type-box red" : "type-box";
+
+            let sb = document.getElementById('st-'+l);
+            if(!isCancel && st !== 'ok') { sb.innerText = st; sb.style.visibility = 'visible'; }
+            else { sb.style.visibility = 'hidden'; }
+
+            document.getElementById('ti-'+l).querySelectorAll('.flap').forEach((f,i) => anim(f, ti[i], false));
+            document.getElementById('de-'+l).querySelectorAll('.flap').forEach((f,i) => anim(f, de[i], isCancel));
+            document.getElementById('vi-'+l).querySelectorAll('.flap').forEach((f,i) => anim(f, via[i], false));
+            document.getElementById('vo-'+l).querySelectorAll('.flap').forEach((f,i) => anim(f, vo[i], false));
+        }
+
+        async function record() {
+            try {
+                const s = await navigator.mediaDevices.getDisplayMedia({video:true});
+                const r = new MediaRecorder(s); const c = [];
+                r.ondataavailable = e => c.push(e.data);
+                r.onstop = () => {
+                    const b = new Blob(c, {type:'video/webm'});
+                    const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download='sbb_classic.webm'; a.click();
+                };
+                r.start();
+            } catch(e) {}
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
